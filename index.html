@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Camera Recorder</title>
+<style>
+  body { font-family: -apple-system, system-ui, sans-serif; margin: 0; background: #f4f4f5; color: #18181b; }
+  main { max-width: 720px; margin: 24px auto; padding: 0 16px; }
+  /* Mirror the on-screen preview only, like FaceTime. The saved video is not flipped. */
+  video { width: 100%; background: #000; border-radius: 8px; transform: scaleX(-1); }
+  .row { display: flex; gap: 12px; margin-top: 12px; }
+  label { display: flex; flex-direction: column; font-size: 13px; color: #52525b; flex: 1; }
+  input { font-size: 16px; padding: 8px; border: 1px solid #d4d4d8; border-radius: 6px; margin-top: 4px; }
+  button { font-size: 18px; padding: 12px; border: 0; border-radius: 8px; color: #fff; background: #16a34a; cursor: pointer; width: 100%; margin-top: 16px; }
+  button.recording { background: #dc2626; }
+  button:disabled { background: #a1a1aa; cursor: default; }
+  #name { font-family: ui-monospace, monospace; margin-top: 12px; }
+  #status { margin-top: 12px; min-height: 1.4em; }
+  .error { color: #dc2626; }
+  .ok { color: #16a34a; }
+</style>
+</head>
+<body>
+<main>
+  <video id="preview" autoplay muted playsinline></video>
+
+  <div class="row">
+    <label>Dyad ID <input id="pid" placeholder="111"></label>
+  </div>
+  <div class="row">
+    <label>Save folder (on ResearchDrive) <input id="folder" placeholder="/Volumes/your_lab/camera-recordings"></label>
+  </div>
+
+  <div id="name"></div>
+  <button id="btn" disabled>Start recording</button>
+  <div id="status"></div>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const preview = $("preview"), btn = $("btn"), status = $("status");
+let stream, recorder, chunks = [], startedAt, timer;
+
+// Pick an .mp4 format the browser can record (Safari and Chrome can; Firefox can't).
+const mimeType = ["video/mp4;codecs=avc1,mp4a.40.2", "video/mp4"].find((t) => MediaRecorder.isTypeSupported(t));
+
+// Remember the save folder between visits.
+try { $("folder").value = localStorage.getItem("folder") ||
+  (navigator.userAgent.includes("Windows") ? "\\\\research.drive.wisc.edu\\niedenthal\\UW_Fall2026" : "/Volumes/niedenthal/UW_Fall2026"); } catch {}
+$("folder").addEventListener("change", () => { try { localStorage.setItem("folder", $("folder").value.trim()); } catch {} });
+
+// Time stamp like 09282026-034200 (mmddyyyy-hhmmss).
+function stamp(t) {
+  const d = new Date(t);
+  const p = (n) => String(n).padStart(2, "0");
+  return `${p(d.getMonth() + 1)}${p(d.getDate())}${d.getFullYear()}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
+}
+
+// e.g. dyad-111_09282026-034200. Uses the time recording started.
+function fileName(t = startedAt) {
+  const pid = $("pid").value.trim();
+  if (!pid) return "";
+  return `dyad-${pid}_${stamp(t)}`;
+}
+
+function showName() {
+  const n = fileName(Date.now());
+  $("name").textContent = n ? `Will save as: ${n}.mp4 (time = when you press Start)` : "";
+}
+$("pid").addEventListener("input", showName);
+showName();
+
+function setStatus(msg, cls = "") { status.textContent = msg; status.className = cls; }
+
+async function init() {
+  if (!mimeType) return setStatus("This browser can't record .mp4. Please use Chrome or Safari.", "error");
+  try {
+    // Ask for 16:9 HD (1080p, or 720p if the camera can't do 1080p).
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { width: { ideal: 1920 }, height: { ideal: 1080 }, aspectRatio: { ideal: 16 / 9 } },
+      audio: true,
+    });
+    preview.srcObject = stream;
+    btn.disabled = false;
+  } catch (e) {
+    setStatus("Could not open camera: " + e.message, "error");
+  }
+}
+
+btn.onclick = () => (recorder && recorder.state === "recording" ? stop() : start());
+
+function start() {
+  if (!$("pid").value.trim()) return setStatus("Enter the dyad ID first.", "error");
+  if (!$("folder").value.trim()) return setStatus("Enter the save folder first.", "error");
+  chunks = [];
+  recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 8_000_000, audioBitsPerSecond: 128_000 });
+  recorder.ondataavailable = (e) => e.data.size && chunks.push(e.data);
+  recorder.onstop = upload;
+  recorder.start(1000);
+  startedAt = Date.now();
+  btn.textContent = "Stop recording";
+  btn.classList.add("recording");
+  timer = setInterval(() => {
+    const s = Math.floor((Date.now() - startedAt) / 1000);
+    setStatus(`Recording… ${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`);
+  }, 250);
+}
+
+function stop() {
+  clearInterval(timer);
+  recorder.stop();
+  btn.textContent = "Start recording";
+  btn.classList.remove("recording");
+}
+
+async function upload() {
+  btn.disabled = true;
+  setStatus("Saving to ResearchDrive…");
+  const blob = new Blob(chunks, { type: "video/mp4" });
+  try {
+    const res = await fetch("/save", {
+      method: "POST",
+      headers: {
+        "X-Folder": encodeURIComponent($("folder").value.trim()),
+        "X-Filename": encodeURIComponent(fileName()),
+      },
+      body: blob,
+    });
+    const { message } = await res.json();
+    if (res.ok) setStatus("Saved: " + message, "ok");
+    else throw new Error(message);
+  } catch (e) {
+    // Keep the video so nothing is lost if the upload fails.
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = fileName() + ".mp4";
+    a.click();
+    setStatus("Upload failed: " + e.message + " — a copy was downloaded to your Downloads folder.", "error");
+  }
+  btn.disabled = false;
+}
+
+init();
+</script>
+</body>
+</html>
