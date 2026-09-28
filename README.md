@@ -21,22 +21,29 @@ Records in 16:9 full HD (1920×1080) if the camera supports it.
 
 ## Windows
 
+### Desktop app (recommended)
+
 **One-time setup**
-1. Install Python from python.org. Tick **"Add python.exe to PATH"** during setup.
+1. Download `Camera Recorder Setup` from the latest GitHub release and run it. Windows may show a SmartScreen warning because the app is not code-signed; choose **More info → Run anyway**.
 2. Turn on the campus VPN.
-3. Double-click `start.bat`. Sign in with your NetID and tick **"Remember my credentials"**.
+3. Open `\\research.drive.wisc.edu\niedenthal` in File Explorer. Sign in with your NetID and tick **"Remember my credentials"**.
 
 **Each time**
 1. Turn on the campus VPN.
-2. Double-click `start.bat`. The app opens in your browser.
-3. Use Chrome or Edge.
+2. Open **Camera Recorder** from the Start menu or desktop.
+
+The portable `.exe` in each release runs without installation. Both builds include the browser engine they need.
+
+### Browser version
+
+Developers can still run `start.bat` with Python installed to use the browser version.
 
 ## Recording
 1. Allow camera and mic when the browser asks.
 2. Type the dyad ID (e.g. `111`).
 3. Press **Start recording**, then **Stop recording**. The video saves to ResearchDrive.
 
-Keep the black window (Terminal) open while using the app. Closing it stops the app.
+When using the browser version, keep the black terminal window open. The Windows desktop app does not open a terminal.
 
 ## Good to know
 - The VPN is needed unless the computer is plugged into a campus network cable.
