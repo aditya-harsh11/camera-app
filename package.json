@@ -9,7 +9,7 @@
   "scripts": {
     "start": "electron .",
     "test": "node --test",
-    "dist:win": "electron-builder --win"
+    "dist:win": "electron-builder --win --publish never"
   },
   "devDependencies": {
     "electron": "44.4.5",
