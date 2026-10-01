@@ -14,10 +14,11 @@ function isTrustedPage(url) {
 
 function createWindow() {
   const window = new BrowserWindow({
-    width: 920,
-    height: 780,
-    minWidth: 640,
-    minHeight: 600,
+    width: 1280,
+    height: 960,
+    minWidth: 480,
+    minHeight: 480,
+    resizable: true,
     backgroundColor: "#f4f4f5",
     title: "SCS Camera-App",
     icon: path.join(__dirname, "assets", "icon.png"),

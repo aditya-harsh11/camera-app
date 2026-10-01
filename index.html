@@ -6,17 +6,30 @@
 <title>SCS Camera-App</title>
 <style>
   body { font-family: -apple-system, system-ui, sans-serif; margin: 0; background: #f4f4f5; color: #18181b; }
-  main { max-width: 720px; margin: 24px auto; padding: 0 16px; }
+  * { box-sizing: border-box; }
+  main { max-width: 1600px; margin: 20px auto; padding: 0 24px 24px; }
+  .camera-area { position: relative; width: 100%; height: clamp(280px, 60vh, 900px); min-width: min(320px, 100%); min-height: 200px; max-width: 100%; max-height: 85vh; resize: both; overflow: hidden; background: #101112; border: 1px solid #3f3f46; border-radius: 8px; }
+  .resize-cue { position: absolute; right: 22px; bottom: 18px; padding: 5px 9px; border-radius: 4px; background: #fafafa; color: #27272a; font-size: 12px; pointer-events: none; animation: resize-nudge 450ms ease-in-out 3 800ms; }
+  .resize-grip { position: absolute; right: 3px; bottom: 3px; width: 15px; height: 15px; pointer-events: none; background: repeating-linear-gradient(135deg, transparent 0 3px, #fafafa 3px 5px); clip-path: polygon(100% 0, 100% 100%, 0 100%); }
+  @keyframes resize-nudge { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(-4px, -4px); } }
+  @media (prefers-reduced-motion: reduce) { .resize-cue { animation: none; } }
+  .controls { display: grid; grid-template-columns: minmax(240px, 1fr) minmax(240px, 1.4fr); column-gap: 24px; align-items: start; }
+  .actions { grid-column: 1 / -1; }
+  @media (max-width: 640px) {
+    main { margin: 12px auto; padding: 0 12px 20px; }
+    .controls { grid-template-columns: minmax(0, 1fr); gap: 0; }
+    .camera-area { height: 45vh; }
+  }
   /* Mirror the on-screen preview only, like FaceTime. The saved video is not flipped. */
-  video { width: 100%; background: #000; border-radius: 8px; transform: scaleX(-1); }
-  .row { display: flex; gap: 12px; margin-top: 12px; }
-  label, .field { display: flex; flex-direction: column; font-size: 13px; color: #52525b; flex: 1; }
-  input { font-size: 16px; padding: 8px; border: 1px solid #d4d4d8; border-radius: 6px; margin-top: 4px; }
+  video { display: block; width: 100%; height: 100%; object-fit: contain; background: #101112; transform: scaleX(-1); }
+  .row { display: flex; gap: 12px; margin-top: 12px; min-width: 0; }
+  label, .field { display: flex; flex-direction: column; font-size: 13px; color: #52525b; flex: 1; min-width: 0; }
+  input { min-width: 0; width: 100%; font-size: 16px; padding: 8px; border: 1px solid #d4d4d8; border-radius: 6px; margin-top: 4px; }
   button { font-size: 18px; padding: 12px; border: 0; border-radius: 8px; color: #fff; background: #16a34a; cursor: pointer; width: 100%; margin-top: 16px; }
   button.recording { background: #dc2626; }
   button:disabled { background: #a1a1aa; cursor: default; }
-  #name { font-family: ui-monospace, monospace; margin-top: 12px; }
-  #status { margin-top: 12px; min-height: 1.4em; }
+  #name { font-family: ui-monospace, monospace; font-size: 13px; margin-top: 12px; overflow-wrap: anywhere; }
+  #status { margin-top: 12px; min-height: 1.4em; overflow-wrap: anywhere; }
   #saved-path { color: #15803d; overflow-wrap: anywhere; }
   .error { color: #dc2626; }
   .ok { color: #16a34a; }
@@ -28,11 +41,16 @@
 </head>
 <body>
 <main>
-  <video id="preview" autoplay muted playsinline></video>
+  <div class="camera-area" title="Drag the bottom-right corner to resize the camera preview">
+    <video id="preview" autoplay muted playsinline></video>
+    <span class="resize-cue">Resizable</span>
+    <span class="resize-grip" aria-hidden="true"></span>
+  </div>
 
+  <div class="controls">
   <div class="row">
     <label>Dyad ID <input id="pid" placeholder="111"></label>
-    <label style="flex: 0">Minutes <input id="minutes" type="number" min="1" value="10"></label>
+    <label style="flex: 0 0 80px">Minutes <input id="minutes" type="number" min="1" value="10"></label>
   </div>
   <div class="row">
     <div class="field">Save folder (on ResearchDrive)
@@ -40,10 +58,13 @@
     </div>
   </div>
 
+  <div class="actions">
   <div id="name"></div>
   <button id="btn" disabled>Start recording</button>
   <div id="status"></div>
   <a id="saved-path" href="#" hidden></a>
+  </div>
+  </div>
 </main>
 
 <script>

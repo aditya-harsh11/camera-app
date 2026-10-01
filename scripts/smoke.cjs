@@ -19,6 +19,22 @@ app.whenReady().then(async () => {
   try {
     const window = BrowserWindow.getAllWindows()[0];
     while (window.webContents.isLoading()) await new Promise(r => setTimeout(r, 100));
+    for (const [width, height] of [[1280, 960], [800, 700], [480, 600]]) {
+      window.setSize(width, height);
+      await new Promise(r => setTimeout(r, 100));
+      const fits = await window.webContents.executeJavaScript(`(() => {
+        const minutes = $('minutes').getBoundingClientRect();
+        const folder = $('folder').getBoundingClientRect();
+        const camera = document.querySelector('.camera-area');
+        camera.style.width = '500px';
+        camera.style.height = '300px';
+        const box = camera.getBoundingClientRect();
+        return document.documentElement.scrollWidth <= innerWidth &&
+          (minutes.right <= folder.left || minutes.bottom <= folder.top) &&
+          box.right <= innerWidth && getComputedStyle(preview).objectFit === 'contain';
+      })()`);
+      assert.equal(fits, true, `Layout must fit at ${width}x${height}`);
+    }
     const result = await window.webContents.executeJavaScript(`(async () => {
       for (let i = 0; btn.disabled && i < 100; i++) await new Promise(r => setTimeout(r, 100));
       if (btn.disabled) throw new Error(status.textContent || 'Camera did not initialize');

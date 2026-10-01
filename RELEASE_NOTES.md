@@ -4,6 +4,8 @@ Includes Aditya's timed recording and native folder picker changes through commi
 
 The app is now named SCS Camera-App and uses the supplied camera artwork for its application, installer, and shortcut icons. Download the SCS Camera-App executables for this updated build.
 
+The app opens with a larger camera preview. Drag its bottom-right grip to resize it; a brief animated Resizable cue appears on opening. Controls reflow in narrow windows, and the preview preserves the full camera frame without stretching or cropping.
+
 Updated release: click a saved recording path to reveal the file in Finder or Windows File Explorer. Desktop fallback copies in Downloads are clickable too.
 
 - Set a recording duration (10 minutes by default); recording stops and saves automatically.
