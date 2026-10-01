@@ -53,7 +53,7 @@ let stream, recorder, chunks = [], startedAt, timer, limitMs;
 const mimeType = ["video/mp4;codecs=avc1,mp4a.40.2", "video/mp4"].find((t) => MediaRecorder.isTypeSupported(t));
 
 // Remember the save folder between visits.
-let folder = navigator.userAgent.includes("Windows")
+let folder = (window.cameraApp?.platform === "win32" || navigator.userAgent.includes("Windows"))
   ? "\\\\research.drive.wisc.edu\\niedenthal\\UW_Fall2026" : "/Volumes/niedenthal/UW_Fall2026";
 try { folder = localStorage.getItem("folder") || folder; } catch {}
 $("folder").textContent = folder;
@@ -157,24 +157,42 @@ async function upload() {
   setStatus("Saving to ResearchDrive…");
   const blob = new Blob(chunks, { type: "video/mp4" });
   try {
-    const res = await fetch("/save", {
-      method: "POST",
-      headers: {
-        "X-Folder": encodeURIComponent(folder),
-        "X-Filename": encodeURIComponent(fileName()),
-      },
-      body: blob,
-    });
-    const { message } = await res.json();
-    if (res.ok) setStatus("Saved: " + message, "ok");
-    else throw new Error(message);
+    if (window.cameraApp) {
+      const savedPath = await window.cameraApp.saveRecording(
+        folder,
+        fileName(),
+        await blob.arrayBuffer(),
+      );
+      setStatus("Saved: " + savedPath, "ok");
+    } else {
+      const res = await fetch("/save", {
+        method: "POST",
+        headers: {
+          "X-Folder": encodeURIComponent(folder),
+          "X-Filename": encodeURIComponent(fileName()),
+        },
+        body: blob,
+      });
+      const { message } = await res.json();
+      if (res.ok) setStatus("Saved: " + message, "ok");
+      else throw new Error(message);
+    }
   } catch (e) {
-    // Keep the video so nothing is lost if the upload fails.
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = fileName() + ".mp4";
-    a.click();
-    setStatus("Upload failed: " + e.message + " — a copy was downloaded to your Downloads folder.", "error");
+    // Keep a local copy so a ResearchDrive outage never loses a recording.
+    try {
+      if (window.cameraApp) {
+        const fallbackPath = await window.cameraApp.saveFallback(fileName(), await blob.arrayBuffer());
+        setStatus(`ResearchDrive save failed: ${e.message} Local copy saved: ${fallbackPath}`, "error");
+      } else {
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = fileName() + ".mp4";
+        a.click();
+        setStatus("Upload failed: " + e.message + " — a copy was downloaded to your Downloads folder.", "error");
+      }
+    } catch (fallbackError) {
+      setStatus(`Save failed: ${e.message} Local backup also failed: ${fallbackError.message}`, "error");
+    }
   }
   btn.disabled = false;
 }
