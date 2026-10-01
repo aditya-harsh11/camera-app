@@ -22,11 +22,12 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      backgroundThrottling: false,
     },
   });
 
   window.removeMenu();
-  window.loadFile("index.html");
+  window.loadFile(path.join(__dirname, "index.html"));
 }
 
 app.whenReady().then(() => {

@@ -47,7 +47,7 @@
 <script>
 const $ = (id) => document.getElementById(id);
 const preview = $("preview"), btn = $("btn"), status = $("status");
-let stream, recorder, chunks = [], startedAt, timer, limitMs;
+let stream, recorder, chunks = [], startedAt, timer, limitMs, recordingName, recordingFolder;
 
 // Pick an .mp4 format the browser can record (Safari and Chrome can; Firefox can't).
 const mimeType = ["video/mp4;codecs=avc1,mp4a.40.2", "video/mp4"].find((t) => MediaRecorder.isTypeSupported(t));
@@ -128,8 +128,9 @@ const clock = (s) => (s = Math.round(s), `${Math.floor(s / 60)}:${String(s % 60)
 
 function start() {
   if (!$("pid").value.trim()) return setStatus("Enter the dyad ID first.", "error");
+  if (!/^[A-Za-z0-9_-]+$/.test($("pid").value.trim())) return setStatus("Dyad ID can only contain letters, numbers, - and _.", "error");
   const minutes = Number($("minutes").value);
-  if (!(minutes > 0)) return setStatus("Enter how many minutes to record.", "error");
+  if (!Number.isFinite(minutes) || !(minutes > 0)) return setStatus("Enter how many minutes to record.", "error");
   limitMs = minutes * 60_000;
   chunks = [];
   recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 8_000_000, audioBitsPerSecond: 128_000 });
@@ -141,6 +142,9 @@ function start() {
   recorder.onstop = upload;
   recorder.start(1000);
   startedAt = Date.now();
+  recordingName = fileName();
+  recordingFolder = folder;
+  $("pid").disabled = $("minutes").disabled = $("choose").disabled = true;
   btn.textContent = "Stop recording";
   btn.classList.add("recording");
   timer = setInterval(() => {
@@ -151,7 +155,8 @@ function start() {
 }
 
 function stop() {
-  if (recorder.state !== "recording") return;
+  if (!recorder || recorder.state !== "recording") return;
+  btn.disabled = true;
   clearInterval(timer);
   recorder.stop();
   btn.textContent = "Start recording";
@@ -165,8 +170,8 @@ async function upload() {
   try {
     if (window.cameraApp) {
       const savedPath = await window.cameraApp.saveRecording(
-        folder,
-        fileName(),
+        recordingFolder,
+        recordingName,
         await blob.arrayBuffer(),
       );
       setStatus("Saved: " + savedPath, "ok");
@@ -174,8 +179,8 @@ async function upload() {
       const res = await fetch("/save", {
         method: "POST",
         headers: {
-          "X-Folder": encodeURIComponent(folder),
-          "X-Filename": encodeURIComponent(fileName()),
+          "X-Folder": encodeURIComponent(recordingFolder),
+          "X-Filename": encodeURIComponent(recordingName),
         },
         body: blob,
       });
@@ -187,20 +192,28 @@ async function upload() {
     // Keep a local copy so a ResearchDrive outage never loses a recording.
     try {
       if (window.cameraApp) {
-        const fallbackPath = await window.cameraApp.saveFallback(fileName(), await blob.arrayBuffer());
+        const fallbackPath = await window.cameraApp.saveFallback(recordingName, await blob.arrayBuffer());
         setStatus(`ResearchDrive save failed: ${e.message} Local copy saved: ${fallbackPath}`, "error");
       } else {
         const a = document.createElement("a");
         a.href = URL.createObjectURL(blob);
-        a.download = fileName() + ".mp4";
+        a.download = recordingName + ".mp4";
         a.click();
         setStatus("Upload failed: " + e.message + " — a copy was downloaded to your Downloads folder.", "error");
       }
     } catch (fallbackError) {
       setStatus(`Save failed: ${e.message} Local backup also failed: ${fallbackError.message}`, "error");
+      btn.textContent = "Retry saving";
+      btn.onclick = upload;
+      btn.disabled = false;
+      return;
     }
   }
   btn.disabled = false;
+  btn.textContent = "Start recording";
+  btn.onclick = () => (recorder && recorder.state === "recording" ? stop() : start());
+  $("pid").disabled = $("minutes").disabled = $("choose").disabled = false;
+  chunks = [];
 }
 
 init();

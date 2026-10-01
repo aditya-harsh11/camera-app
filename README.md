@@ -51,3 +51,12 @@ When using the browser version, keep the black terminal window open. The Windows
 - If a file with the same name already exists, `_2`, `_3`, … is added. Nothing is overwritten.
 - If saving fails, a copy goes to the Downloads folder so nothing is lost.
 - To change the save folder, press **Change…** and pick a folder in the Finder (Mac) or Explorer (Windows) window that opens. It remembers your choice.
+- The dyad ID, duration, and folder are locked while recording and saving.
+- If both the selected folder and Downloads fail, keep the app open and use **Retry saving** after restoring access or disk space.
+
+## Development
+
+Run `npm ci`, then `npm start`. Run `npm test` for regression tests and
+`npx electron scripts/smoke.cjs` for a synthetic camera/audio test of timed recording,
+MP4 saving, and the Downloads fallback. No real camera input is used by that test.
+`npm run dist:win` builds the Windows installer and portable executable on Windows.
