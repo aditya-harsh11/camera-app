@@ -6,23 +6,16 @@ const test = require("node:test");
 const {
   saveRecording,
   validateFilename,
-  validateResearchDriveFolder,
+  validateSaveFolder,
 } = require("../storage");
 
-test("accepts a ResearchDrive UNC folder", () => {
-  assert.equal(
-    validateResearchDriveFolder("\\\\research.drive.wisc.edu\\niedenthal\\UW_Fall2026"),
-    "\\\\research.drive.wisc.edu\\niedenthal\\UW_Fall2026",
-  );
+test("accepts any existing folder", async () => {
+  assert.equal(await validateSaveFolder(os.tmpdir()), path.resolve(os.tmpdir()));
 });
 
-test("rejects traversal and non-ResearchDrive folders", () => {
-  assert.throws(
-    () => validateResearchDriveFolder("\\\\research.drive.wisc.edu\\niedenthal\\..\\other"),
-    /can't contain/,
-  );
-  assert.throws(() => validateResearchDriveFolder("C:\\recordings"), /must start/);
-  assert.throws(() => validateResearchDriveFolder("\\\\other-server\\share"), /must start/);
+test("rejects missing or empty folders", async () => {
+  await assert.rejects(validateSaveFolder(path.join(os.tmpdir(), "no-such-folder-xyz")), /not found/);
+  await assert.rejects(validateSaveFolder("  "), /Choose a save folder/);
 });
 
 test("accepts only safe recording names", () => {
@@ -31,16 +24,12 @@ test("accepts only safe recording names", () => {
   assert.throws(() => validateFilename("recording.mp4"), /only contain/);
 });
 
-test("fallback saves never overwrite an existing recording", async (t) => {
+test("saves never overwrite an existing recording", async (t) => {
   const folder = await fs.mkdtemp(path.join(os.tmpdir(), "camera-recorder-"));
   t.after(() => fs.rm(folder, { recursive: true, force: true }));
 
-  const first = await saveRecording(folder, "dyad-111", Buffer.from("first"), {
-    requireResearchDrive: false,
-  });
-  const second = await saveRecording(folder, "dyad-111", Buffer.from("second"), {
-    requireResearchDrive: false,
-  });
+  const first = await saveRecording(folder, "dyad-111", Buffer.from("first"));
+  const second = await saveRecording(folder, "dyad-111", Buffer.from("second"));
 
   assert.equal(path.basename(first), "dyad-111.mp4");
   assert.equal(path.basename(second), "dyad-111_2.mp4");

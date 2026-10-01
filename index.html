@@ -58,14 +58,20 @@ let folder = (window.cameraApp?.platform === "win32" || navigator.userAgent.incl
 try { folder = localStorage.getItem("folder") || folder; } catch {}
 $("folder").textContent = folder;
 
-// Opens Finder (Mac) or Explorer (Windows) via server.py to pick the save folder.
+// Opens Finder (Mac) or Explorer (Windows) to pick the save folder: through the
+// desktop app if running in it, otherwise through server.py.
 $("choose").onclick = async () => {
   $("choose").disabled = true;
   setStatus("Pick a folder in the window that just opened…");
   try {
-    const res = await fetch("/choose-folder?path=" + encodeURIComponent(folder));
-    const { message } = await res.json();
-    if (!res.ok) throw new Error(message);
+    let message;
+    if (window.cameraApp) {
+      message = await window.cameraApp.chooseFolder(folder);
+    } else {
+      const res = await fetch("/choose-folder?path=" + encodeURIComponent(folder));
+      message = (await res.json()).message;
+      if (!res.ok) throw new Error(message);
+    }
     setStatus("");
     if (message) {
       folder = message;

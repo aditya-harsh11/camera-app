@@ -1,6 +1,6 @@
 const path = require("node:path");
 const { pathToFileURL } = require("node:url");
-const { app, BrowserWindow, ipcMain, session } = require("electron");
+const { app, BrowserWindow, dialog, ipcMain, session } = require("electron");
 const { saveRecording } = require("./storage");
 
 const APP_ORIGIN = pathToFileURL(__dirname + path.sep).href;
@@ -46,9 +46,18 @@ app.whenReady().then(() => {
   ipcMain.handle("recording:save-fallback", async (event, request) => {
     if (!isTrustedPage(event.senderFrame.url)) throw new Error("Untrusted save request.");
     const bytes = Buffer.from(request.bytes);
-    return saveRecording(app.getPath("downloads"), request.filename, bytes, {
-      requireResearchDrive: false,
+    return saveRecording(app.getPath("downloads"), request.filename, bytes);
+  });
+
+  // Opens the normal Windows folder picker. Returns "" if cancelled.
+  ipcMain.handle("folder:choose", async (event, start) => {
+    if (!isTrustedPage(event.senderFrame.url)) throw new Error("Untrusted folder request.");
+    const { canceled, filePaths } = await dialog.showOpenDialog(BrowserWindow.fromWebContents(event.sender), {
+      title: "Pick where to save recordings",
+      defaultPath: start,
+      properties: ["openDirectory", "createDirectory"],
     });
+    return canceled ? "" : filePaths[0];
   });
 
   createWindow();
