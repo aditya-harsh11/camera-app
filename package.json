@@ -9,7 +9,8 @@
   "scripts": {
     "start": "electron .",
     "test": "node --test",
-    "dist:win": "electron-builder --win --publish never"
+    "dist:win": "electron-builder --win --publish never",
+    "dist:mac": "electron-builder --mac --dir --publish never"
   },
   "devDependencies": {
     "electron": "44.4.5",
@@ -17,13 +18,15 @@
   },
   "build": {
     "appId": "edu.wisc.niedenthal.camera-recorder",
-    "productName": "Camera Recorder",
+    "productName": "SCS Camera-App",
+    "icon": "assets/icon.png",
     "asar": true,
     "files": [
       "index.html",
       "main.js",
       "preload.js",
       "storage.js",
+      "assets/icon.png",
       "package.json"
     ],
     "win": {
@@ -31,6 +34,13 @@
         "nsis",
         "portable"
       ]
+    },
+    "mac": {
+      "category": "public.app-category.video",
+      "extendInfo": {
+        "NSCameraUsageDescription": "SCS Camera-App uses the camera to record video.",
+        "NSMicrophoneUsageDescription": "SCS Camera-App uses the microphone to record audio."
+      }
     },
     "nsis": {
       "oneClick": false,

@@ -1,6 +1,8 @@
-# Camera Recorder v1.1.0
+# SCS Camera-App v1.1.0
 
 Includes Aditya's timed recording and native folder picker changes through commit 501adc8.
+
+The app is now named SCS Camera-App and uses the supplied camera artwork for its application, installer, and shortcut icons. Download the SCS Camera-App executables for this updated build.
 
 Updated release: click a saved recording path to reveal the file in Finder or Windows File Explorer. Desktop fallback copies in Downloads are clickable too.
 

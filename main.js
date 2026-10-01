@@ -3,6 +3,7 @@ const { pathToFileURL } = require("node:url");
 const { app, BrowserWindow, dialog, ipcMain, session, shell } = require("electron");
 const fs = require("node:fs/promises");
 const { saveRecording } = require("./storage");
+app.setName("SCS Camera-App");
 
 const APP_ORIGIN = pathToFileURL(__dirname + path.sep).href;
 const savedRecordings = new Set();
@@ -18,7 +19,8 @@ function createWindow() {
     minWidth: 640,
     minHeight: 600,
     backgroundColor: "#f4f4f5",
-    title: "Camera Recorder",
+    title: "SCS Camera-App",
+    icon: path.join(__dirname, "assets", "icon.png"),
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
@@ -33,6 +35,7 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  if (process.platform === "darwin") app.dock.setIcon(path.join(__dirname, "assets", "icon.png"));
   session.defaultSession.setPermissionCheckHandler((webContents, permission) => {
     return permission === "media" && isTrustedPage(webContents.getURL());
   });
