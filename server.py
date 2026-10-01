@@ -10,6 +10,7 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 PORT = 8765
 HERE = os.path.dirname(os.path.abspath(__file__))
+SAVED_RECORDINGS = set()
 
 # Opens the normal Finder "choose folder" window, in front of the browser.
 MAC_PICKER = """
@@ -79,6 +80,20 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_POST(self):
+        if self.path == "/reveal":
+            target = unquote(self.headers.get("X-Path", ""))
+            if target not in SAVED_RECORDINGS:
+                return self.reply(403, "Only recordings saved by this app can be revealed.")
+            if not os.path.isfile(target):
+                return self.reply(404, "Recording not found. Check that the drive is connected.")
+            try:
+                if os.name == "nt":
+                    subprocess.Popen(["explorer.exe", "/select,", os.path.normpath(target)])
+                else:
+                    subprocess.run(["open", "-R", target], check=True)
+            except (OSError, subprocess.SubprocessError) as error:
+                return self.reply(500, str(error))
+            return self.reply(200, "Opened recording location.")
         if self.path != "/save":
             self.send_error(404)
             return
@@ -110,6 +125,7 @@ class Handler(BaseHTTPRequestHandler):
                 f.write(chunk)
                 remaining -= len(chunk)
 
+        SAVED_RECORDINGS.add(path)
         self.reply(200, path)
 
     def reply(self, status, message):

@@ -1,8 +1,10 @@
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, shell } = require('electron');
 const fs = require('node:fs/promises');
 const os = require('node:os');
 const path = require('node:path');
 const assert = require('node:assert/strict');
+const revealed = [];
+shell.showItemInFolder = filePath => revealed.push(filePath);
 
 // Synthetic camera and microphone only; no personal footage or network writes.
 app.commandLine.appendSwitch('use-fake-device-for-media-stream');
@@ -27,16 +29,21 @@ app.whenReady().then(async () => {
       if (!$('choose').disabled || !$('pid').disabled) throw new Error('Recording metadata is editable');
       for (let i = 0; !status.textContent.startsWith('Saved:') && i < 200; i++) await new Promise(r => setTimeout(r, 100));
       if (!status.textContent.startsWith('Saved:')) throw new Error(status.textContent);
+      if ($('saved-path').hidden) throw new Error('Saved path is not clickable');
+      await $('saved-path').onclick({ preventDefault() {} });
       folder += '/missing';
       $('pid').value = 'fallback';
       start();
       for (let i = 0; !status.textContent.includes('Local copy saved:') && i < 200; i++) await new Promise(r => setTimeout(r, 100));
       if (!status.textContent.includes('Local copy saved:')) throw new Error(status.textContent);
+      await $('saved-path').onclick({ preventDefault() {} });
       return { message: status.textContent, unlocked: !btn.disabled && !$('choose').disabled };
     })()`);
     assert.equal(result.unlocked, true);
     const files = await fs.readdir(folder);
     assert.equal(files.length, 2);
+    assert.equal(revealed.length, 2);
+    for (const file of revealed) assert.ok(files.includes(path.basename(file)));
     const bytes = await fs.readFile(path.join(folder, files[0]));
     assert.ok(bytes.length > 1000, 'Recording must contain media');
     assert.equal(bytes.toString('ascii', 4, 8), 'ftyp', 'Recording must be MP4');

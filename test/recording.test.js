@@ -38,6 +38,22 @@ test('recording preserves initial identity and destination, and locks Stop immed
   assert.equal(p.element('choose').disabled, false);
 });
 
+test('saved link reveals the exact path and remains available on reveal errors', async () => {
+  const p = page();
+  const target = 'C:\\Recordings\\dyad-111.mp4';
+  let revealed;
+  p.bridge.revealRecording = async value => { revealed = value; };
+  p.run(`showSaved('Saved:', ${JSON.stringify(target)})`);
+  const link = p.element('saved-path');
+  assert.equal(link.hidden, false);
+  await link.onclick({ preventDefault() {} });
+  assert.equal(revealed, target);
+  p.bridge.revealRecording = async () => { throw Error('Drive disconnected'); };
+  await link.onclick({ preventDefault() {} });
+  assert.match(p.element('status').textContent, /Drive disconnected/);
+  assert.equal(link.hidden, false);
+});
+
 test('invalid dyad and infinite duration are rejected before recording', () => {
   const p = page();
   p.element('pid').value = '../bad';

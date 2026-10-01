@@ -7,4 +7,5 @@ contextBridge.exposeInMainWorld("cameraApp", {
   saveFallback: (filename, bytes) =>
     ipcRenderer.invoke("recording:save-fallback", { filename, bytes }),
   chooseFolder: (start) => ipcRenderer.invoke("folder:choose", start),
+  revealRecording: (filePath) => ipcRenderer.invoke("recording:reveal", filePath),
 });

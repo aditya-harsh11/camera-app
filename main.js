@@ -1,9 +1,11 @@
 const path = require("node:path");
 const { pathToFileURL } = require("node:url");
-const { app, BrowserWindow, dialog, ipcMain, session } = require("electron");
+const { app, BrowserWindow, dialog, ipcMain, session, shell } = require("electron");
+const fs = require("node:fs/promises");
 const { saveRecording } = require("./storage");
 
 const APP_ORIGIN = pathToFileURL(__dirname + path.sep).href;
+const savedRecordings = new Set();
 
 function isTrustedPage(url) {
   return url.startsWith(APP_ORIGIN);
@@ -41,13 +43,25 @@ app.whenReady().then(() => {
   ipcMain.handle("recording:save", async (event, request) => {
     if (!isTrustedPage(event.senderFrame.url)) throw new Error("Untrusted save request.");
     const bytes = Buffer.from(request.bytes);
-    return saveRecording(request.folder, request.filename, bytes);
+    const savedPath = await saveRecording(request.folder, request.filename, bytes);
+    savedRecordings.add(savedPath);
+    return savedPath;
   });
 
   ipcMain.handle("recording:save-fallback", async (event, request) => {
     if (!isTrustedPage(event.senderFrame.url)) throw new Error("Untrusted save request.");
     const bytes = Buffer.from(request.bytes);
-    return saveRecording(app.getPath("downloads"), request.filename, bytes);
+    const savedPath = await saveRecording(app.getPath("downloads"), request.filename, bytes);
+    savedRecordings.add(savedPath);
+    return savedPath;
+  });
+
+  ipcMain.handle("recording:reveal", async (event, filePath) => {
+    if (!isTrustedPage(event.senderFrame.url) || !savedRecordings.has(filePath)) {
+      throw new Error("Only recordings saved by this app can be revealed.");
+    }
+    await fs.access(filePath);
+    shell.showItemInFolder(filePath);
   });
 
   // Opens the normal Windows folder picker. Returns "" if cancelled.
