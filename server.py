@@ -3,16 +3,71 @@
 import json
 import os
 import re
+import subprocess
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import unquote
+from urllib.parse import parse_qs, unquote, urlparse
 
 PORT = 8765
 HERE = os.path.dirname(os.path.abspath(__file__))
 
+# Opens the normal Finder "choose folder" window, in front of the browser.
+MAC_PICKER = """
+on run argv
+  activate
+  set start to POSIX file (item 1 of argv)
+  try
+    return POSIX path of (choose folder with prompt "Pick where to save recordings" default location start)
+  on error number -128
+    return ""
+  end try
+end run
+"""
+
+# Opens the normal Explorer window to pick a folder (works with \\research.drive.wisc.edu paths).
+WINDOWS_PICKER = r"""
+Add-Type -AssemblyName System.Windows.Forms
+[Console]::OutputEncoding = [Text.Encoding]::UTF8
+$d = New-Object System.Windows.Forms.OpenFileDialog
+$d.Title = "Open the folder to save recordings in, then click Open"
+$d.ValidateNames = $false; $d.CheckFileExists = $false; $d.CheckPathExists = $true
+$d.FileName = "Save here"
+$d.InitialDirectory = $env:START_FOLDER
+$owner = New-Object System.Windows.Forms.Form -Property @{ TopMost = $true }
+if ($d.ShowDialog($owner) -eq "OK") { Split-Path $d.FileName }
+"""
+
+
+def check_folder(folder):
+    """Returns why `folder` can't be used for saving, or None if it's fine."""
+    if not os.path.isdir(folder):
+        return f"Folder not found: {folder}. If it's on ResearchDrive, check it's connected and the VPN is on."
+    return None
+
+
+def pick_folder(start):
+    """Shows the system folder picker. Returns the chosen folder, or "" if cancelled."""
+    if os.name == "nt":
+        cmd = ["powershell", "-NoProfile", "-STA", "-Command", WINDOWS_PICKER]
+        env = {**os.environ, "START_FOLDER": start}
+    else:
+        cmd = ["osascript", "-e", MAC_PICKER, start]
+        env = None
+    out = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", env=env).stdout
+    return out.strip().rstrip("/\\")
+
 
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
+        url = urlparse(self.path)
+        if url.path == "/choose-folder":
+            start = parse_qs(url.query).get("path", [""])[0]
+            # Start in the current folder, or the home folder if it doesn't exist.
+            folder = pick_folder(start if os.path.isdir(start) else os.path.expanduser("~"))
+            if not folder:
+                return self.reply(200, "")
+            error = check_folder(folder)
+            return self.reply(400, error) if error else self.reply(200, folder)
         if self.path != "/":
             self.send_error(404)
             return
@@ -31,25 +86,9 @@ class Handler(BaseHTTPRequestHandler):
         name = unquote(self.headers.get("X-Filename", ""))
         length = int(self.headers.get("Content-Length", 0))
 
-        if ".." in re.split(r"[\\/]", folder):
-            return self.reply(400, "Save folder can't contain '..'")
-
-        if os.name == "nt":
-            # Windows: save straight to the network path, e.g. \\research.drive.wisc.edu\lab\folder
-            drive = os.path.splitdrive(folder)[0]
-            if not drive.startswith("\\\\"):
-                return self.reply(400, "Save folder must start with \\\\research.drive.wisc.edu\\<lab>")
-            if not os.path.isdir(drive + "\\"):
-                return self.reply(400, f"ResearchDrive is not connected ({drive} not reachable). Is the VPN on?")
-        else:
-            # Mac: only allow saving onto a mounted drive under /Volumes, so nothing
-            # silently lands on the laptop if ResearchDrive isn't connected.
-            parts = folder.split("/")
-            if len(parts) < 3 or parts[1] != "Volumes":
-                return self.reply(400, "Save folder must start with /Volumes/<drive name>")
-            drive = "/".join(parts[:3])
-            if not os.path.ismount(drive):
-                return self.reply(400, f"ResearchDrive is not connected ({drive} not found). Connect it in Finder and try again.")
+        error = check_folder(folder)
+        if error:
+            return self.reply(400, error)
         if not re.fullmatch(r"[A-Za-z0-9_-]+", name):
             return self.reply(400, "File name can only contain letters, numbers, - and _")
 

@@ -43,4 +43,4 @@ Keep the black window (Terminal) open while using the app. Closing it stops the 
 - The VPN is needed unless the computer is plugged into a campus network cable.
 - If a file with the same name already exists, `_2`, `_3`, … is added. Nothing is overwritten.
 - If saving fails, a copy goes to the Downloads folder so nothing is lost.
-- You can change the save folder in the app. It remembers your choice.
+- To change the save folder, press **Change…** and pick a folder in the Finder (Mac) or Explorer (Windows) window that opens. It remembers your choice.

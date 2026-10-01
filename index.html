@@ -10,7 +10,7 @@
   /* Mirror the on-screen preview only, like FaceTime. The saved video is not flipped. */
   video { width: 100%; background: #000; border-radius: 8px; transform: scaleX(-1); }
   .row { display: flex; gap: 12px; margin-top: 12px; }
-  label { display: flex; flex-direction: column; font-size: 13px; color: #52525b; flex: 1; }
+  label, .field { display: flex; flex-direction: column; font-size: 13px; color: #52525b; flex: 1; }
   input { font-size: 16px; padding: 8px; border: 1px solid #d4d4d8; border-radius: 6px; margin-top: 4px; }
   button { font-size: 18px; padding: 12px; border: 0; border-radius: 8px; color: #fff; background: #16a34a; cursor: pointer; width: 100%; margin-top: 16px; }
   button.recording { background: #dc2626; }
@@ -20,6 +20,9 @@
   .error { color: #dc2626; }
   .ok { color: #16a34a; }
   #minutes { width: 80px; }
+  .folder-row { display: flex; gap: 8px; align-items: center; margin-top: 4px; }
+  #folder { font-family: ui-monospace, monospace; font-size: 14px; color: #18181b; flex: 1; word-break: break-all; }
+  button.small { font-size: 14px; padding: 6px 12px; width: auto; margin-top: 0; background: #52525b; }
 </style>
 </head>
 <body>
@@ -31,7 +34,9 @@
     <label style="flex: 0">Minutes <input id="minutes" type="number" min="1" value="10"></label>
   </div>
   <div class="row">
-    <label>Save folder (on ResearchDrive) <input id="folder" placeholder="/Volumes/your_lab/camera-recordings"></label>
+    <div class="field">Save folder (on ResearchDrive)
+      <div class="folder-row"><span id="folder"></span><button class="small" id="choose">Change…</button></div>
+    </div>
   </div>
 
   <div id="name"></div>
@@ -48,9 +53,30 @@ let stream, recorder, chunks = [], startedAt, timer, limitMs;
 const mimeType = ["video/mp4;codecs=avc1,mp4a.40.2", "video/mp4"].find((t) => MediaRecorder.isTypeSupported(t));
 
 // Remember the save folder between visits.
-try { $("folder").value = localStorage.getItem("folder") ||
-  (navigator.userAgent.includes("Windows") ? "\\\\research.drive.wisc.edu\\niedenthal\\UW_Fall2026" : "/Volumes/niedenthal/UW_Fall2026"); } catch {}
-$("folder").addEventListener("change", () => { try { localStorage.setItem("folder", $("folder").value.trim()); } catch {} });
+let folder = navigator.userAgent.includes("Windows")
+  ? "\\\\research.drive.wisc.edu\\niedenthal\\UW_Fall2026" : "/Volumes/niedenthal/UW_Fall2026";
+try { folder = localStorage.getItem("folder") || folder; } catch {}
+$("folder").textContent = folder;
+
+// Opens Finder (Mac) or Explorer (Windows) via server.py to pick the save folder.
+$("choose").onclick = async () => {
+  $("choose").disabled = true;
+  setStatus("Pick a folder in the window that just opened…");
+  try {
+    const res = await fetch("/choose-folder?path=" + encodeURIComponent(folder));
+    const { message } = await res.json();
+    if (!res.ok) throw new Error(message);
+    setStatus("");
+    if (message) {
+      folder = message;
+      $("folder").textContent = folder;
+      try { localStorage.setItem("folder", folder); } catch {}
+    }
+  } catch (e) {
+    setStatus("Can't use that folder: " + e.message, "error");
+  }
+  $("choose").disabled = false;
+};
 
 // Time stamp like 09282026-034200 (mmddyyyy-hhmmss).
 function stamp(t) {
@@ -96,7 +122,6 @@ const clock = (s) => (s = Math.round(s), `${Math.floor(s / 60)}:${String(s % 60)
 
 function start() {
   if (!$("pid").value.trim()) return setStatus("Enter the dyad ID first.", "error");
-  if (!$("folder").value.trim()) return setStatus("Enter the save folder first.", "error");
   const minutes = Number($("minutes").value);
   if (!(minutes > 0)) return setStatus("Enter how many minutes to record.", "error");
   limitMs = minutes * 60_000;
@@ -135,7 +160,7 @@ async function upload() {
     const res = await fetch("/save", {
       method: "POST",
       headers: {
-        "X-Folder": encodeURIComponent($("folder").value.trim()),
+        "X-Folder": encodeURIComponent(folder),
         "X-Filename": encodeURIComponent(fileName()),
       },
       body: blob,
