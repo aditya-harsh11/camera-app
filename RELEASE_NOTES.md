@@ -1,4 +1,18 @@
-# SCS Camera-App v1.1.0
+# SCS Camera-App v1.2.0
+
+## Automatic Windows updates
+
+Install the v1.2.0 **Setup** executable once on each Windows computer, over the existing installation. Earlier versions cannot update themselves.
+
+Installed copies check for updates at startup and every four hours. Updates download in the background. When the app says **Update ready**, close it, allow installation to finish, then reopen to use the new version. The updater never initiates a quit during recording. Closing is blocked while a recording is active or unsaved, including when a save needs retrying.
+
+Offline update checks do not prevent recording and retry automatically. Portable executables and Mac builds do not auto-update. An internet connection to GitHub is needed for updates.
+
+Three additional updater tests cover offline retries, unsupported build exclusion, and overlapping download prevention. Windows CI validates the packaged update provider, installer checksum, version, and blockmap. The installer and update metadata are uploaded to a draft release before publication.
+
+A real installed v1.2.0-to-future-version upgrade on the target PCs has not yet been exercised. Previous releases remain unchanged. Future updates will use new, increasing version numbers.
+
+## Existing features
 
 Includes Aditya's timed recording and native folder picker changes through commit 501adc8.
 

@@ -34,6 +34,19 @@ Records in 16:9 full HD (1920×1080) if the camera supports it.
 
 The portable `.exe` in each release runs without installation. Both builds include the browser engine they need.
 
+### Automatic Windows updates
+
+Install **v1.2.0 or newer using Setup** once on each computer. Installed Windows
+copies check GitHub on startup and every four hours, download updates in the
+background, and install downloaded updates when you exit. Wait for **Update ready**,
+close the app, and allow the installer to finish before reopening. Recording and
+unsaved clips block closing until saved. Offline checks retry automatically.
+Portable executables and Mac builds do not auto-update.
+
+Each future release must have a higher package version and a new matching Git tag.
+The Windows workflow publishes the installer, blockmap, and `latest.yml` together.
+Do not replace assets under an existing version to distribute future updates.
+
 ### Browser version
 
 Developers can still run `start.bat` with Python installed to use the browser version.

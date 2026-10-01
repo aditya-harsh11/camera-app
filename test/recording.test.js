@@ -17,12 +17,13 @@ function page() {
   }
   const saves = [];
   const bridge = { platform: 'win32', async saveRecording(...args) { saves.push(args); return 'saved.mp4'; }, async saveFallback() { throw Error('disk full'); } };
-  const context = vm.createContext({ document: { getElementById: element }, window: { cameraApp: bridge }, navigator: { userAgent: 'Windows', mediaDevices: { async getUserMedia() { return {}; } } }, localStorage: { getItem() {} }, MediaRecorder: Recorder, Blob, Date, setInterval() {}, clearInterval() {} });
+  const events = {};
+  const context = vm.createContext({ document: { getElementById: element }, window: { cameraApp: bridge, addEventListener(name, fn) { events[name] = fn; } }, navigator: { userAgent: 'Windows', mediaDevices: { async getUserMedia() { return {}; } } }, localStorage: { getItem() {} }, MediaRecorder: Recorder, Blob, Date, setInterval() {}, clearInterval() {} });
   const html = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
   vm.runInContext(html.match(/<script>([\s\S]*?)<\/script>/)[1], context);
   element('pid').value = '111';
   element('minutes').value = '1';
-  return { element, bridge, saves, run: source => vm.runInContext(source, context) };
+  return { element, bridge, saves, events, run: source => vm.runInContext(source, context) };
 }
 
 test('recording preserves initial identity and destination, and locks Stop immediately', async () => {
@@ -72,8 +73,14 @@ test('failed primary and backup saves retain data and offer retry', async () => 
   await p.run('upload()');
   assert.equal(p.element('btn').textContent, 'Retry saving');
   assert.equal(p.run('chunks.length'), 1);
+  let blocked = false;
+  p.events.beforeunload({ preventDefault() { blocked = true; } });
+  assert.equal(blocked, true);
   p.bridge.saveRecording = async () => 'saved.mp4';
   await p.element('btn').onclick();
   assert.equal(p.run('chunks.length'), 0);
   assert.equal(p.element('btn').textContent, 'Start recording');
+  blocked = false;
+  p.events.beforeunload({ preventDefault() { blocked = true; } });
+  assert.equal(blocked, false);
 });

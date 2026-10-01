@@ -1,0 +1,20 @@
+const fs = require('node:fs');
+const path = require('node:path');
+const crypto = require('node:crypto');
+const assert = require('node:assert/strict');
+const yaml = require('js-yaml');
+
+const metadata = yaml.load(fs.readFileSync('dist/latest.yml', 'utf8'));
+assert.equal(metadata.version, require('../package.json').version);
+const installer = metadata.files.find(file => file.url.includes('Setup'));
+assert.ok(installer, 'Update feed must select the NSIS installer');
+assert.equal(metadata.path, installer.url);
+const filename = path.join('dist', decodeURIComponent(installer.url));
+const sha512 = crypto.createHash('sha512').update(fs.readFileSync(filename)).digest('base64');
+assert.equal(sha512, installer.sha512, 'Installer hash must match the published feed');
+assert.ok(fs.existsSync(filename + '.blockmap'));
+const config = yaml.load(fs.readFileSync('dist/win-unpacked/resources/app-update.yml', 'utf8'));
+assert.equal(config.provider, 'github');
+assert.equal(config.owner, 'aditya-harsh11');
+assert.equal(config.repo, 'camera-app');
+console.log('PASS: packaged update configuration, version, installer checksum, and blockmap');

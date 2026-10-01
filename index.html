@@ -31,6 +31,7 @@
   #name { font-family: ui-monospace, monospace; font-size: 13px; margin-top: 12px; overflow-wrap: anywhere; }
   #status { margin-top: 12px; min-height: 1.4em; overflow-wrap: anywhere; }
   #saved-path { color: #15803d; overflow-wrap: anywhere; }
+  #updates { margin-top: 16px; font-size: 12px; color: #52525b; }
   .error { color: #dc2626; }
   .ok { color: #16a34a; }
   #minutes { width: 80px; }
@@ -63,6 +64,7 @@
   <button id="btn" disabled>Start recording</button>
   <div id="status"></div>
   <a id="saved-path" href="#" hidden></a>
+  <div id="updates" role="status"></div>
   </div>
   </div>
 </main>
@@ -70,6 +72,13 @@
 <script>
 const $ = (id) => document.getElementById(id);
 const preview = $("preview"), btn = $("btn"), status = $("status");
+window.cameraApp?.onUpdateStatus?.(message => { $("updates").textContent = message; });
+window.addEventListener('beforeunload', event => {
+  if ($('pid').disabled) {
+    event.preventDefault();
+    event.returnValue = false;
+  }
+});
 let stream, recorder, chunks = [], startedAt, timer, limitMs, recordingName, recordingFolder;
 
 // Pick an .mp4 format the browser can record (Safari and Chrome can; Firefox can't).

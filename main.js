@@ -3,10 +3,12 @@ const { pathToFileURL } = require("node:url");
 const { app, BrowserWindow, dialog, ipcMain, session, shell } = require("electron");
 const fs = require("node:fs/promises");
 const { saveRecording } = require("./storage");
+const { startUpdates } = require("./updater");
 app.setName("SCS Camera-App");
 
 const APP_ORIGIN = pathToFileURL(__dirname + path.sep).href;
 const savedRecordings = new Set();
+let updateStatus = '';
 
 function isTrustedPage(url) {
   return url.startsWith(APP_ORIGIN);
@@ -32,6 +34,13 @@ function createWindow() {
   });
 
   window.removeMenu();
+  window.webContents.on('will-prevent-unload', () => {
+    void dialog.showMessageBox(window, {
+      type: 'info', title: 'Recording not saved',
+      message: 'Stop recording and wait for it to save before closing the app.',
+      buttons: ['OK'],
+    });
+  });
   window.loadFile(path.join(__dirname, "index.html"));
 }
 
@@ -80,6 +89,15 @@ app.whenReady().then(() => {
   });
 
   createWindow();
+  ipcMain.handle('updates:status', () => updateStatus);
+  if (app.isPackaged && process.platform === 'win32' && !process.env.PORTABLE_EXECUTABLE_FILE) {
+    startUpdates({ updater: require('electron-updater').autoUpdater, app,
+      report: message => {
+        updateStatus = message;
+        for (const window of BrowserWindow.getAllWindows()) window.webContents.send('updates:status', message);
+      },
+    });
+  }
   app.on("activate", () => BrowserWindow.getAllWindows().length === 0 && createWindow());
 });
 
