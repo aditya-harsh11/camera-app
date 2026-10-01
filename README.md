@@ -33,8 +33,9 @@ Records in 16:9 full HD (1920×1080) if the camera supports it.
 
 ## Recording
 1. Allow camera and mic when the browser asks.
-2. Type the dyad ID (e.g. `111`).
-3. Press **Start recording**, then **Stop recording**. The video saves to ResearchDrive.
+2. Type the dyad ID (e.g. `111`) and how many minutes to record (10 by default).
+3. Press **Start recording**. When the time is up, recording stops and the video saves to ResearchDrive on its own.
+   You can press **Stop recording** to end early.
 
 Keep the black window (Terminal) open while using the app. Closing it stops the app.
 

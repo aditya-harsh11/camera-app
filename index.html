@@ -19,6 +19,7 @@
   #status { margin-top: 12px; min-height: 1.4em; }
   .error { color: #dc2626; }
   .ok { color: #16a34a; }
+  #minutes { width: 80px; }
 </style>
 </head>
 <body>
@@ -27,6 +28,7 @@
 
   <div class="row">
     <label>Dyad ID <input id="pid" placeholder="111"></label>
+    <label style="flex: 0">Minutes <input id="minutes" type="number" min="1" value="10"></label>
   </div>
   <div class="row">
     <label>Save folder (on ResearchDrive) <input id="folder" placeholder="/Volumes/your_lab/camera-recordings"></label>
@@ -40,7 +42,7 @@
 <script>
 const $ = (id) => document.getElementById(id);
 const preview = $("preview"), btn = $("btn"), status = $("status");
-let stream, recorder, chunks = [], startedAt, timer;
+let stream, recorder, chunks = [], startedAt, timer, limitMs;
 
 // Pick an .mp4 format the browser can record (Safari and Chrome can; Firefox can't).
 const mimeType = ["video/mp4;codecs=avc1,mp4a.40.2", "video/mp4"].find((t) => MediaRecorder.isTypeSupported(t));
@@ -90,24 +92,35 @@ async function init() {
 
 btn.onclick = () => (recorder && recorder.state === "recording" ? stop() : start());
 
+const clock = (s) => (s = Math.round(s), `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`);
+
 function start() {
   if (!$("pid").value.trim()) return setStatus("Enter the dyad ID first.", "error");
   if (!$("folder").value.trim()) return setStatus("Enter the save folder first.", "error");
+  const minutes = Number($("minutes").value);
+  if (!(minutes > 0)) return setStatus("Enter how many minutes to record.", "error");
+  limitMs = minutes * 60_000;
   chunks = [];
   recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 8_000_000, audioBitsPerSecond: 128_000 });
-  recorder.ondataavailable = (e) => e.data.size && chunks.push(e.data);
+  recorder.ondataavailable = (e) => {
+    if (e.data.size) chunks.push(e.data);
+    // Also checked here, since browsers slow down timers in background tabs.
+    if (Date.now() - startedAt >= limitMs) stop();
+  };
   recorder.onstop = upload;
   recorder.start(1000);
   startedAt = Date.now();
   btn.textContent = "Stop recording";
   btn.classList.add("recording");
   timer = setInterval(() => {
-    const s = Math.floor((Date.now() - startedAt) / 1000);
-    setStatus(`Recording… ${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`);
+    const ms = Date.now() - startedAt;
+    if (ms >= limitMs) return stop();
+    setStatus(`Recording… ${clock(Math.floor(ms / 1000))} of ${clock(limitMs / 1000)} (stops and saves automatically)`);
   }, 250);
 }
 
 function stop() {
+  if (recorder.state !== "recording") return;
   clearInterval(timer);
   recorder.stop();
   btn.textContent = "Start recording";
