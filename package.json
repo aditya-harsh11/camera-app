@@ -50,10 +50,14 @@
       }
     },
     "nsis": {
+      "artifactName": "SCS-Camera-App-Setup-${version}.${ext}",
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true
+    },
+    "portable": {
+      "artifactName": "SCS-Camera-App-Portable-${version}.${ext}"
     }
   },
   "dependencies": {
